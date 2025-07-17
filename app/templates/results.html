@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Prediction Results - Customer Satisfaction Predictor</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/style.css') }}" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+        <div class="container">
+            <a class="navbar-brand" href="{{ url_for('index') }}">
+                <i class="fas fa-chart-line me-2"></i>
+                Customer Satisfaction Predictor
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('index') }}">Home</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('predict_form') }}">Make Prediction</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="container py-5">
+        <!-- Results Header -->
+        <div class="row mb-4">
+            <div class="col-12 text-center">
+                <h2 class="fw-bold text-primary">
+                    <i class="fas fa-chart-bar me-2"></i>
+                    Prediction Results
+                </h2>
+                <p class="text-muted">Customer satisfaction prediction analysis</p>
+            </div>
+        </div>
+
+        <!-- Main Prediction Result -->
+        <div class="row mb-4">
+            <div class="col-lg-8 mx-auto">
+                <div class="card shadow-lg">
+                    <div class="card-header bg-primary text-white text-center">
+                        <h4 class="mb-0">
+                            <i class="fas fa-star me-2"></i>
+                            Predicted Customer Satisfaction
+                        </h4>
+                    </div>
+                    <div class="card-body text-center py-5">
+                        <div class="row">
+                            <div class="col-md-4">
+                                <div class="prediction-score">
+                                    <div class="score-circle mx-auto mb-3" 
+                                         style="background: conic-gradient(#28a745 0deg {{ (prediction.predicted_satisfaction / 5 * 360) | round }}deg, #e9ecef {{ (prediction.predicted_satisfaction / 5 * 360) | round }}deg 360deg);">
+                                        <div class="score-inner">
+                                            <span class="score-value">{{ prediction.predicted_satisfaction }}</span>
+                                            <span class="score-max">/5</span>
+                                        </div>
+                                    </div>
+                                    <h5 class="text-primary">Rating</h5>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="confidence-score">
+                                    <div class="score-circle mx-auto mb-3"
+                                         style="background: conic-gradient(#17a2b8 0deg {{ (prediction.confidence_score * 360) | round }}deg, #e9ecef {{ (prediction.confidence_score * 360) | round }}deg 360deg);">
+                                        <div class="score-inner">
+                                            <span class="score-value">{{ (prediction.confidence_score * 100) | round }}%</span>
+                                        </div>
+                                    </div>
+                                    <h5 class="text-info">Confidence</h5>
+                                </div>
+                            </div>
+                            <div class="col-md-4">
+                                <div class="model-info">
+                                    <div class="model-icon mx-auto mb-3">
+                                        <i class="fas fa-robot fa-4x text-success"></i>
+                                    </div>
+                                    <h5 class="text-success">{{ model_used }}</h5>
+                                    <p class="text-muted mb-0">Model Used</p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <hr class="my-4">
+                        
+                        <div class="prediction-details">
+                            <h6 class="text-primary mb-3">Prediction Details</h6>
+                            <span class="badge bg-{{ 'success' if prediction.prediction_details.confidence_level == 'High' else 'warning' if prediction.prediction_details.confidence_level == 'Medium' else 'danger' }} fs-6 px-3 py-2">
+                                {{ prediction.prediction_details.confidence_level }} Confidence
+                            </span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Probability Distribution -->
+        <div class="row mb-4">
+            <div class="col-lg-6 mb-4">
+                <div class="card shadow">
+                    <div class="card-header bg-info text-white">
+                        <h5 class="mb-0">
+                            <i class="fas fa-chart-pie me-2"></i>
+                            Probability Distribution
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <canvas id="probabilityChart" width="400" height="300"></canvas>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-lg-6 mb-4">
+                <div class="card shadow">
+                    <div class="card-header bg-success text-white">
+                        <h5 class="mb-0">
+                            <i class="fas fa-percentage me-2"></i>
+                            Rating Probabilities
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        {% for rating, percentage in prediction.prediction_details.probability_percentages.items() %}
+                        <div class="mb-3">
+                            <div class="d-flex justify-content-between mb-1">
+                                <span>{{ rating.replace('_', ' ').title() }}</span>
+                                <span class="fw-bold">{{ percentage }}</span>
+                            </div>
+                            <div class="progress">
+                                <div class="progress-bar bg-primary" role="progressbar" 
+                                     style="width: {{ percentage.rstrip('%') }}%" 
+                                     aria-valuenow="{{ percentage.rstrip('%') }}" 
+                                     aria-valuemin="0" aria-valuemax="100">
+                                </div>
+                            </div>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Feature Analysis -->
+        {% if explanation.top_influential_features %}
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card shadow">
+                    <div class="card-header bg-warning text-dark">
+                        <h5 class="mb-0">
+                            <i class="fas fa-brain me-2"></i>
+                            Top Influential Features
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row">
+                            {% for feature in explanation.top_influential_features[:6] %}
+                            <div class="col-md-6 col-lg-4 mb-3">
+                                <div class="feature-card p-3 border rounded">
+                                    <h6 class="feature-name text-primary">{{ feature.feature.replace('_', ' ').title() }}</h6>
+                                    <div class="feature-importance mb-2">
+                                        <span class="badge bg-secondary">Importance: {{ "%.3f"|format(feature.importance) }}</span>
+                                    </div>
+                                    <div class="feature-value">
+                                        <small class="text-muted">Value: {{ feature.value }}</small>
+                                    </div>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Input Analysis -->
+        <div class="row mb-4">
+            <div class="col-lg-6 mb-4">
+                <div class="card shadow">
+                    <div class="card-header bg-secondary text-white">
+                        <h5 class="mb-0">
+                            <i class="fas fa-user me-2"></i>
+                            Customer Information
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <table class="table table-borderless">
+                            <tr>
+                                <td><strong>Age:</strong></td>
+                                <td>{{ customer_data.get('Customer Age', 'N/A') }}</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Gender:</strong></td>
+                                <td>{{ customer_data.get('Customer Gender', 'N/A') }}</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Product:</strong></td>
+                                <td>{{ customer_data.get('Product Purchased', 'N/A') }}</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Purchase Date:</strong></td>
+                                <td>{{ customer_data.get('Date of Purchase', 'N/A') }}</td>
+                            </tr>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="col-lg-6 mb-4">
+                <div class="card shadow">
+                    <div class="card-header bg-dark text-white">
+                        <h5 class="mb-0">
+                            <i class="fas fa-ticket-alt me-2"></i>
+                            Ticket Information
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <table class="table table-borderless">
+                            <tr>
+                                <td><strong>Type:</strong></td>
+                                <td>{{ customer_data.get('Ticket Type', 'N/A') }}</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Priority:</strong></td>
+                                <td>
+                                    <span class="badge bg-{{ 'danger' if customer_data.get('Ticket Priority') == 'Critical' else 'warning' if customer_data.get('Ticket Priority') == 'High' else 'info' if customer_data.get('Ticket Priority') == 'Medium' else 'secondary' }}">
+                                        {{ customer_data.get('Ticket Priority', 'N/A') }}
+                                    </span>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td><strong>Channel:</strong></td>
+                                <td>{{ customer_data.get('Ticket Channel', 'N/A') }}</td>
+                            </tr>
+                            <tr>
+                                <td><strong>Subject:</strong></td>
+                                <td>{{ customer_data.get('Ticket Subject', 'N/A') }}</td>
+                            </tr>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Recommendation -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card shadow">
+                    <div class="card-header bg-primary text-white">
+                        <h5 class="mb-0">
+                            <i class="fas fa-lightbulb me-2"></i>
+                            Recommendation
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="alert alert-{{ 'success' if prediction.predicted_satisfaction >= 4 else 'warning' if prediction.predicted_satisfaction == 3 else 'danger' }} mb-0">
+                            <h6 class="alert-heading">
+                                <i class="fas fa-{{ 'check-circle' if prediction.predicted_satisfaction >= 4 else 'exclamation-triangle' if prediction.predicted_satisfaction == 3 else 'exclamation-circle' }} me-2"></i>
+                                Action Required
+                            </h6>
+                            <p class="mb-0">{{ explanation.recommendation }}</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="row">
+            <div class="col-12 text-center">
+                <a href="{{ url_for('predict_form') }}" class="btn btn-primary btn-lg me-3">
+                    <i class="fas fa-plus me-2"></i>
+                    New Prediction
+                </a>
+                <button onclick="window.print()" class="btn btn-outline-secondary btn-lg">
+                    <i class="fas fa-print me-2"></i>
+                    Print Results
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="bg-dark text-white py-4 mt-5">
+        <div class="container">
+            <div class="row">
+                <div class="col-md-6">
+                    <p class="mb-0">&copy; 2024 Customer Satisfaction Predictor. All rights reserved.</p>
+                </div>
+                <div class="col-md-6 text-md-end">
+                    <p class="mb-0">Powered by Machine Learning & Flask</p>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Create probability distribution chart
+        const ctx = document.getElementById('probabilityChart').getContext('2d');
+        const probabilityData = {
+            labels: ['Rating 1', 'Rating 2', 'Rating 3', 'Rating 4', 'Rating 5'],
+            datasets: [{
+                data: [
+                    {{ prediction.probability_distribution.rating_1 * 100 }},
+                    {{ prediction.probability_distribution.rating_2 * 100 }},
+                    {{ prediction.probability_distribution.rating_3 * 100 }},
+                    {{ prediction.probability_distribution.rating_4 * 100 }},
+                    {{ prediction.probability_distribution.rating_5 * 100 }}
+                ],
+                backgroundColor: [
+                    '#dc3545',
+                    '#fd7e14',
+                    '#ffc107',
+                    '#20c997',
+                    '#28a745'
+                ],
+                borderWidth: 2,
+                borderColor: '#fff'
+            }]
+        };
+
+        new Chart(ctx, {
+            type: 'doughnut',
+            data: probabilityData,
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom'
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(context) {
+                                return context.label + ': ' + context.parsed.toFixed(1) + '%';
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    </script>
+
+    <style>
+        .score-circle {
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+        
+        .score-inner {
+            width: 90px;
+            height: 90px;
+            background: white;
+            border-radius: 50%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .score-value {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #333;
+        }
+        
+        .score-max {
+            font-size: 1rem;
+            color: #666;
+        }
+        
+        .feature-card {
+            background-color: #f8f9fa;
+            transition: transform 0.2s ease;
+        }
+        
+        .feature-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        
+        .feature-name {
+            font-size: 0.9rem;
+            margin-bottom: 0.5rem;
+        }
+        
+        @media print {
+            .navbar, footer, .btn {
+                display: none !important;
+            }
+            
+            .card {
+                border: 1px solid #dee2e6 !important;
+                box-shadow: none !important;
+            }
+        }
+    </style>
+</body>
+</html>
