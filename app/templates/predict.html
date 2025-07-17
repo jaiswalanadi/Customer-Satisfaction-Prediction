@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Make Prediction - Customer Satisfaction Predictor</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="{{ url_for('static', filename='css/style.css') }}" rel="stylesheet">
+</head>
+<body>
+    <!-- Navigation -->
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+        <div class="container">
+            <a class="navbar-brand" href="{{ url_for('index') }}">
+                <i class="fas fa-chart-line me-2"></i>
+                Customer Satisfaction Predictor
+            </a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="{{ url_for('index') }}">Home</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link active" href="{{ url_for('predict_form') }}">Make Prediction</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="container py-5">
+        <div class="row justify-content-center">
+            <div class="col-lg-8">
+                <div class="card shadow">
+                    <div class="card-header bg-primary text-white">
+                        <h4 class="mb-0">
+                            <i class="fas fa-magic me-2"></i>
+                            Customer Satisfaction Prediction
+                        </h4>
+                    </div>
+                    <div class="card-body">
+                        <!-- Flash Messages -->
+                        {% with messages = get_flashed_messages(with_categories=true) %}
+                            {% if messages %}
+                                {% for category, message in messages %}
+                                    <div class="alert alert-{{ 'danger' if category == 'error' else 'success' }} alert-dismissible fade show" role="alert">
+                                        {{ message }}
+                                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                                    </div>
+                                {% endfor %}
+                            {% endif %}
+                        {% endwith %}
+
+                        <form action="{{ url_for('predict_form_submit') }}" method="POST" id="predictionForm">
+                            <!-- Model Selection -->
+                            <div class="row mb-4">
+                                <div class="col-12">
+                                    <label for="model" class="form-label fw-bold">
+                                        <i class="fas fa-robot me-2"></i>Select Model
+                                    </label>
+                                    <select class="form-select" id="model" name="model" required>
+                                        {% for model_name in models %}
+                                            <option value="{{ model_name }}" 
+                                                {% if model_name == 'Random Forest' %}selected{% endif %}>
+                                                {{ model_name }}
+                                            </option>
+                                        {% endfor %}
+                                    </select>
+                                </div>
+                            </div>
+
+                            <!-- Customer Information -->
+                            <div class="row mb-4">
+                                <div class="col-12">
+                                    <h5 class="text-primary mb-3">
+                                        <i class="fas fa-user me-2"></i>Customer Information
+                                    </h5>
+                                </div>
+                                
+                                <div class="col-md-6 mb-3">
+                                    <label for="customer_age" class="form-label">Customer Age</label>
+                                    <input type="number" class="form-control" id="customer_age" name="customer_age" 
+                                           value="{{ sample_data.get('Customer Age', 30) }}" min="18" max="100" required>
+                                </div>
+                                
+                                <div class="col-md-6 mb-3">
+                                    <label for="customer_gender" class="form-label">Customer Gender</label>
+                                    <select class="form-select" id="customer_gender" name="customer_gender" required>
+                                        <option value="Male" {% if sample_data.get('Customer Gender') == 'Male' %}selected{% endif %}>Male</option>
+                                        <option value="Female" {% if sample_data.get('Customer Gender') == 'Female' %}selected{% endif %}>Female</option>
+                                        <option value="Other" {% if sample_data.get('Customer Gender') == 'Other' %}selected{% endif %}>Other</option>
+                                    </select>
+                                </div>
+                                
+                                <div class="col-12 mb-3">
+                                    <label for="product_purchased" class="form-label">Product Purchased</label>
+                                    <select class="form-select" id="product_purchased" name="product_purchased" required>
+                                        <option value="Dell XPS" {% if sample_data.get('Product Purchased') == 'Dell XPS' %}selected{% endif %}>Dell XPS</option>
+                                        <option value="LG Smart TV">LG Smart TV</option>
+                                        <option value="GoPro Hero">GoPro Hero</option>
+                                        <option value="Canon EOS">Canon EOS</option>
+                                        <option value="Sony Xperia">Sony Xperia</option>
+                                        <option value="Apple AirPods">Apple AirPods</option>
+                                        <option value="Microsoft Office">Microsoft Office</option>
+                                        <option value="Nest Thermostat">Nest Thermostat</option>
+                                        <option value="Amazon Echo">Amazon Echo</option>
+                                        <option value="Philips Hue Lights">Philips Hue Lights</option>
+                                    </select>
+                                </div>
+                                
+                                <div class="col-12 mb-3">
+                                    <label for="date_of_purchase" class="form-label">Date of Purchase</label>
+                                    <input type="date" class="form-control" id="date_of_purchase" name="date_of_purchase" 
+                                           value="{{ sample_data.get('Date of Purchase', '2023-01-15') }}" required>
+                                </div>
+                            </div>
+
+                            <!-- Ticket Information -->
+                            <div class="row mb-4">
+                                <div class="col-12">
+                                    <h5 class="text-primary mb-3">
+                                        <i class="fas fa-ticket-alt me-2"></i>Ticket Information
+                                    </h5>
+                                </div>
+                                
+                                <div class="col-md-6 mb-3">
+                                    <label for="ticket_type" class="form-label">Ticket Type</label>
+                                    <select class="form-select" id="ticket_type" name="ticket_type" required>
+                                        <option value="Technical issue" {% if sample_data.get('Ticket Type') == 'Technical issue' %}selected{% endif %}>Technical issue</option>
+                                        <option value="Billing inquiry">Billing inquiry</option>
+                                        <option value="Product inquiry">Product inquiry</option>
+                                        <option value="Refund request">Refund request</option>
+                                        <option value="Cancellation request">Cancellation request</option>
+                                    </select>
+                                </div>
+                                
+                                <div class="col-md-6 mb-3">
+                                    <label for="ticket_priority" class="form-label">Ticket Priority</label>
+                                    <select class="form-select" id="ticket_priority" name="ticket_priority" required>
+                                        <option value="Low">Low</option>
+                                        <option value="Medium">Medium</option>
+                                        <option value="High" {% if sample_data.get('Ticket Priority') == 'High' %}selected{% endif %}>High</option>
+                                        <option value="Critical">Critical</option>
+                                    </select>
+                                </div>
+                                
+                                <div class="col-md-6 mb-3">
+                                    <label for="ticket_channel" class="form-label">Ticket Channel</label>
+                                    <select class="form-select" id="ticket_channel" name="ticket_channel" required>
+                                        <option value="Email" {% if sample_data.get('Ticket Channel') == 'Email' %}selected{% endif %}>Email</option>
+                                        <option value="Phone">Phone</option>
+                                        <option value="Chat">Chat</option>
+                                        <option value="Social media">Social media</option>
+                                    </select>
+                                </div>
+                                
+                                <div class="col-md-6 mb-3">
+                                    <label for="ticket_subject" class="form-label">Ticket Subject</label>
+                                    <input type="text" class="form-control" id="ticket_subject" name="ticket_subject" 
+                                           value="{{ sample_data.get('Ticket Subject', 'Software bug') }}" required>
+                                </div>
+                                
+                                <div class="col-12 mb-3">
+                                    <label for="ticket_description" class="form-label">Ticket Description</label>
+                                    <textarea class="form-control" id="ticket_description" name="ticket_description" 
+                                              rows="4" required>{{ sample_data.get('Ticket Description', '') }}</textarea>
+                                    <div class="form-text">
+                                        Describe the customer's issue or inquiry in detail
+                                    </div>
+                                </div>
+                            </div>
+
+                            <!-- Action Buttons -->
+                            <div class="row">
+                                <div class="col-12">
+                                    <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                                        <button type="button" class="btn btn-secondary me-md-2" onclick="loadSampleData()">
+                                            <i class="fas fa-sample me-2"></i>Load Sample Data
+                                        </button>
+                                        <button type="button" class="btn btn-warning me-md-2" onclick="clearForm()">
+                                            <i class="fas fa-eraser me-2"></i>Clear Form
+                                        </button>
+                                        <button type="submit" class="btn btn-primary" id="predictBtn">
+                                            <i class="fas fa-magic me-2"></i>Predict Satisfaction
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+
+                <!-- API Example -->
+                <div class="card shadow mt-4">
+                    <div class="card-header bg-info text-white">
+                        <h5 class="mb-0">
+                            <i class="fas fa-code me-2"></i>API Usage Example
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <p class="mb-3">You can also use our API to make predictions programmatically:</p>
+                        <pre class="bg-light p-3 rounded"><code>curl -X POST {{ request.url_root }}api/predict \
+  -H "Content-Type: application/json" \
+  -d '{
+    "customer_age": 35,
+    "customer_gender": "Male",
+    "product_purchased": "Dell XPS",
+    "ticket_type": "Technical issue",
+    "ticket_subject": "Software bug",
+    "ticket_description": "Critical software bug causing crashes",
+    "ticket_priority": "High",
+    "ticket_channel": "Email",
+    "date_of_purchase": "2023-01-15",
+    "model": "Random Forest"
+  }'</code></pre>
+                        
+                        <div class="mt-3">
+                            <button type="button" class="btn btn-sm btn-outline-info" onclick="testAPI()">
+                                <i class="fas fa-play me-1"></i>Test API
+                            </button>
+                            <div id="apiResult" class="mt-3" style="display: none;"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <footer class="bg-dark text-white py-4 mt-5">
+        <div class="container">
+            <div class="row">
+                <div class="col-md-6">
+                    <p class="mb-0">&copy; 2024 Customer Satisfaction Predictor. All rights reserved.</p>
+                </div>
+                <div class="col-md-6 text-md-end">
+                    <p class="mb-0">Powered by Machine Learning & Flask</p>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/js/bootstrap.bundle.min.js"></script>
+    <script>
+        function loadSampleData() {
+            // Load sample data into the form
+            document.getElementById('customer_age').value = {{ sample_data.get('Customer Age', 35) }};
+            document.getElementById('customer_gender').value = "{{ sample_data.get('Customer Gender', 'Male') }}";
+            document.getElementById('product_purchased').value = "{{ sample_data.get('Product Purchased', 'Dell XPS') }}";
+            document.getElementById('ticket_type').value = "{{ sample_data.get('Ticket Type', 'Technical issue') }}";
+            document.getElementById('ticket_subject').value = "{{ sample_data.get('Ticket Subject', 'Software bug') }}";
+            document.getElementById('ticket_description').value = "{{ sample_data.get('Ticket Description', '') }}";
+            document.getElementById('ticket_priority').value = "{{ sample_data.get('Ticket Priority', 'High') }}";
+            document.getElementById('ticket_channel').value = "{{ sample_data.get('Ticket Channel', 'Email') }}";
+            document.getElementById('date_of_purchase').value = "{{ sample_data.get('Date of Purchase', '2023-01-15') }}";
+        }
+        
+        function clearForm() {
+            document.getElementById('predictionForm').reset();
+        }
+        
+        function testAPI() {
+            const apiData = {
+                customer_age: 35,
+                customer_gender: "Male",
+                product_purchased: "Dell XPS",
+                ticket_type: "Technical issue",
+                ticket_subject: "Software bug",
+                ticket_description: "Critical software bug causing frequent crashes",
+                ticket_priority: "High",
+                ticket_channel: "Email",
+                date_of_purchase: "2023-01-15",
+                model: "Random Forest"
+            };
+            
+            fetch('/api/predict', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(apiData)
+            })
+            .then(response => response.json())
+            .then(data => {
+                const resultDiv = document.getElementById('apiResult');
+                resultDiv.style.display = 'block';
+                
+                if (data.success) {
+                    resultDiv.innerHTML = `
+                        <div class="alert alert-success">
+                            <h6>API Test Successful!</h6>
+                            <p><strong>Predicted Satisfaction:</strong> ${data.prediction.predicted_satisfaction}/5</p>
+                            <p><strong>Confidence:</strong> ${(data.prediction.confidence_score * 100).toFixed(1)}%</p>
+                            <p><strong>Model Used:</strong> ${data.model_used}</p>
+                        </div>
+                    `;
+                } else {
+                    resultDiv.innerHTML = `
+                        <div class="alert alert-danger">
+                            <h6>API Test Failed</h6>
+                            <p>${data.error}</p>
+                        </div>
+                    `;
+                }
+            })
+            .catch(error => {
+                const resultDiv = document.getElementById('apiResult');
+                resultDiv.style.display = 'block';
+                resultDiv.innerHTML = `
+                    <div class="alert alert-danger">
+                        <h6>API Test Error</h6>
+                        <p>${error.message}</p>
+                    </div>
+                `;
+            });
+        }
+        
+        // Form submission handling
+        document.getElementById('predictionForm').addEventListener('submit', function(e) {
+            const submitBtn = document.getElementById('predictBtn');
+            submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Predicting...';
+            submitBtn.disabled = true;
+        });
+    </script>
+</body>
+</html>
