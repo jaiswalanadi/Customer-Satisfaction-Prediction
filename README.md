@@ -546,8 +546,3 @@ Ready to start predicting customer satisfaction? Follow these steps:
    - Fill in the prediction form
    - See your results!
 
-**Happy predicting! 🚀**
-
----
-
-*For support or questions, please create an issue in the repository or contact the development team.*
